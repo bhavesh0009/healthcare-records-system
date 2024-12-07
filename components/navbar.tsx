@@ -45,16 +45,11 @@ export function Navbar() {
                         </span>
                     </Link>
                     <nav className="flex items-center space-x-6 text-sm font-medium">
-                        {user ? (
+                        {user && (
                             <>
                                 <NavLink href="/dashboard">Dashboard</NavLink>
                                 <NavLink href="/upload">Upload</NavLink>
                                 <NavLink href="/timeline">Timeline</NavLink>
-                            </>
-                        ) : (
-                            <>
-                                <NavLink href="/about">About</NavLink>
-                                <NavLink href="/contact">Contact</NavLink>
                             </>
                         )}
                     </nav>
