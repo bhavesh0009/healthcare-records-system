@@ -10,7 +10,8 @@ import { ProtectedRoute } from "@/components/protected-route"
 import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/components/ui/use-toast"
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { ref, getDownloadURL } from "firebase/storage"
+import { db, storage } from "@/lib/firebase"
 
 interface Document {
     id?: string;
@@ -25,6 +26,14 @@ interface Document {
     upload_date: string;
     user_id: string;
 }
+
+const formatPatientName = (name: string) => {
+    return name
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+};
 
 export default function Timeline() {
     const [searchTerm, setSearchTerm] = useState("")
@@ -57,7 +66,7 @@ export default function Timeline() {
                 ...doc.data(),
                 id: doc.id
             }) as Document);
-            
+
             console.log("Processed documents:", docs);
             setDocuments(docs);
         } catch (error) {
@@ -96,6 +105,57 @@ export default function Timeline() {
         })
     }
 
+    const formatPatientName = (name: string) => {
+        return name
+            .toLowerCase()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
+
+    const handleDownload = async (doc: Document) => {
+        try {
+            // Get download URL from Firebase Storage
+            const storageRef = ref(storage, doc.storage_path);
+            const url = await getDownloadURL(storageRef);
+
+            // Fetch the file
+            const response = await fetch(url, {
+                method: 'GET',
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            // Create temporary link and trigger download
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = doc.file_name;
+            document.body.appendChild(link);
+            link.click();
+
+            // Cleanup
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+
+            toast({
+                title: "Success",
+                description: "File download started.",
+            });
+        } catch (error) {
+            console.error("Download error:", error);
+            toast({
+                title: "Error",
+                description: "Failed to download file. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
     return (
         <ProtectedRoute>
             <div className="container mx-auto p-4">
@@ -121,21 +181,50 @@ export default function Timeline() {
                 ) : documents.length > 0 ? (
                     <div className="space-y-4">
                         {documents.map((doc, index) => (
-                            <Card key={index}>
-                                <CardHeader>
-                                    <CardTitle>{doc.doc_category}</CardTitle>
-                                    <CardDescription>
-                                        {formatDate(doc.test_date)}
-                                    </CardDescription>
+                            <Card key={index} className="hover:shadow-lg transition-shadow">
+                                <CardHeader className="border-b bg-muted/50">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-xl text-primary">
+                                                {doc.doc_category}
+                                            </CardTitle>
+                                            <CardDescription className="mt-1.5 text-base">
+                                                {formatDate(doc.test_date)}
+                                            </CardDescription>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-medium text-base">
+                                                {formatPatientName(doc.patient_name)}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-2">
-                                        <p><span className="font-semibold">Patient:</span> {doc.patient_name}</p>
-                                        <p><span className="font-semibold">Type:</span> {doc.doc_type}</p>
-                                        <p><span className="font-semibold">Original File:</span> {doc.original_name}</p>
-                                        <div className="mt-4">
-                                            <Button variant="outline" className="mr-2">Preview</Button>
-                                            <Button variant="outline">Download</Button>
+                                <CardContent className="pt-4">
+                                    <div className="space-y-4">
+                                        <div className="text-sm text-muted-foreground">
+                                            <p className="font-medium">
+                                                File: {doc.file_name}
+                                            </p>
+                                            <p className="text-xs mt-1">
+                                                Type: {doc.doc_type}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="hover:bg-primary hover:text-primary-foreground"
+                                            >
+                                                Preview
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="hover:bg-primary hover:text-primary-foreground"
+                                                onClick={() => handleDownload(doc)}
+                                            >
+                                                Download
+                                            </Button>
                                         </div>
                                     </div>
                                 </CardContent>
