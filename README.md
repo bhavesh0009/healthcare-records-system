@@ -88,3 +88,59 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Firebase Storage Configuration
+
+After setting up Firebase, you'll need to configure CORS for Firebase Storage to enable file downloads:
+
+1. Install Google Cloud Storage tools:
+
+```bash
+npm install -g @google-cloud/storage
+```
+
+2. Create a `cors.json` file in your project root:
+
+```json
+[
+  {
+    "origin": ["http://localhost:3000", "https://your-production-domain.com"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
+Replace `your-production-domain.com` with your actual production domain.
+
+3. Apply the CORS configuration:
+
+```bash
+gsutil cors set cors.json gs://your-bucket-name
+```
+Replace `your-bucket-name` with your Firebase Storage bucket name (e.g., `healthrecords-9f987.appspot.com`).
+
+4. Set up Firebase Storage Rules:
+
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{userId}/{fileName} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+
+These configurations enable:
+- Secure file uploads and downloads
+- User-specific file access
+- CORS support for local development and production
+- Proper authentication handling
+
+
+
+
+for shadcn/ui components:
+npx shadcn@latest add dialog

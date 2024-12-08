@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore"
 import { ref, getDownloadURL } from "firebase/storage"
 import { db, storage } from "@/lib/firebase"
+import { PreviewModal } from "@/components/ui/preview-modal"
 
 interface Document {
     id?: string;
@@ -41,6 +42,8 @@ export default function Timeline() {
     const [loading, setLoading] = useState(true)
     const { user } = useAuth()
     const { toast } = useToast()
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+    const [previewFile, setPreviewFile] = useState<Document | null>(null)
 
     const fetchDocuments = async () => {
         if (!user) {
@@ -156,6 +159,22 @@ export default function Timeline() {
         }
     };
 
+    const handlePreview = async (doc: Document) => {
+        try {
+            const storageRef = ref(storage, doc.storage_path);
+            const url = await getDownloadURL(storageRef);
+            setPreviewUrl(url);
+            setPreviewFile(doc);
+        } catch (error) {
+            console.error("Preview error:", error);
+            toast({
+                title: "Error",
+                description: "Failed to load preview. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
     return (
         <ProtectedRoute>
             <div className="container mx-auto p-4">
@@ -210,14 +229,15 @@ export default function Timeline() {
                                             </p>
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button
-                                                variant="outline"
+                                            <Button 
+                                                variant="outline" 
                                                 size="sm"
                                                 className="hover:bg-primary hover:text-primary-foreground"
+                                                onClick={() => handlePreview(doc)}
                                             >
                                                 Preview
                                             </Button>
-                                            <Button
+                                            <Button 
                                                 variant="outline"
                                                 size="sm"
                                                 className="hover:bg-primary hover:text-primary-foreground"
@@ -230,6 +250,19 @@ export default function Timeline() {
                                 </CardContent>
                             </Card>
                         ))}
+                        
+                        {/* Preview Modal */}
+                        {previewUrl && previewFile && (
+                            <PreviewModal
+                                isOpen={!!previewUrl}
+                                onClose={() => {
+                                    setPreviewUrl(null);
+                                    setPreviewFile(null);
+                                }}
+                                fileUrl={previewUrl}
+                                fileName={previewFile.file_name}
+                            />
+                        )}
                     </div>
                 ) : (
                     <div className="text-center py-10">
